@@ -4016,9 +4016,9 @@ static ConstantNumberParseResult parseInteger64(int64_t& result, const char* dat
 // the result is exact and keeps its scale (1.50d has scale 2); the exponent is the negated scale and is in [-28, 0]
 static ConstantNumberParseResult parseDecimal(DecimalMantissa& mantissa, int& exponent, const char* data)
 {
-    const unsigned __int128 maxMantissa = (unsigned __int128)kDecimalMaxMantissa;
+    const DecimalMagnitude maxMantissa = DecimalMagnitude(kDecimalMaxMantissa);
 
-    unsigned __int128 m = 0;
+    DecimalMagnitude m = 0;
     long e = 0;
     bool any = false, dot = false;
 

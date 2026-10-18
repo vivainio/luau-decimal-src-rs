@@ -7,6 +7,9 @@ This fork bundles [vivainio/luau](https://github.com/vivainio/luau)'s native
 decimal implementation. See [decimal integration](DECIMAL.md) for source provenance
 and binding requirements. The Cargo package name remains `luau0-src`.
 
+The decimal VM supports GCC/Clang and MSVC: compilers without native `__int128`
+use portable two-word storage. CI tests Linux, macOS, and Windows.
+
 The upstream source crate documentation follows below.
 
 # luau-src

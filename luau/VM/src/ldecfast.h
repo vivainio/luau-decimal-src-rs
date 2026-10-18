@@ -80,7 +80,7 @@ static inline bool luaO_decmulfast(TValue* ra, const TValue* rb, const TValue* r
         return false;
 
     DecimalMagnitude r;
-    if (__builtin_mul_overflow(luaO_decmagnitude(rb), luaO_decmagnitude(rc), &r) || (r >> 90) != 0)
+    if (!decimalMagnitudeMultiply(luaO_decmagnitude(rb), luaO_decmagnitude(rc), &r) || (r >> 90) != 0)
         return false;
 
     bool neg = ((luaO_decbits(rb) ^ luaO_decbits(rc)) & kDecSignBit) != 0;

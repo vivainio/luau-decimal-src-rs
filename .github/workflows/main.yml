@@ -7,7 +7,18 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo test --workspace
+
+  portable:
+    name: Portable decimal arithmetic
+    runs-on: ubuntu-latest
+    env:
+      LUAU_CXXFLAGS: -DLUAU_DECIMAL_PORTABLE
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable

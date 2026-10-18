@@ -1,6 +1,6 @@
 #![allow(unsafe_op_in_unsafe_fn, non_snake_case, clippy::missing_safety_doc)]
 
-use std::os::raw::{c_char, c_int, c_long, c_void};
+use std::os::raw::{c_char, c_int, c_void};
 
 #[repr(C)]
 pub struct lua_CompileOptions {
@@ -28,7 +28,7 @@ unsafe extern "C" {
     pub fn lua_close(state: *mut c_void);
     pub fn luaL_openlibs(state: *mut c_void);
     pub fn lua_getfield(state: *mut c_void, index: c_int, k: *const c_char) -> c_int;
-    pub fn lua_tolstring(state: *mut c_void, index: c_int, len: *mut c_long) -> *const c_char;
+    pub fn lua_tolstring(state: *mut c_void, index: c_int, len: *mut usize) -> *const c_char;
     pub fn lua_call(state: *mut c_void, nargs: c_int, nresults: c_int);
     pub fn lua_pcall(state: *mut c_void, nargs: c_int, nresults: c_int, errfunc: c_int) -> c_int;
     pub fn luaL_errorL(state: *mut c_void, format: *const c_char, ...) -> !;
@@ -76,7 +76,7 @@ pub unsafe fn lua_getglobal(state: *mut c_void, k: *const c_char) {
 }
 
 pub unsafe fn to_string<'a>(state: *mut c_void, index: c_int) -> &'a str {
-    let mut len: c_long = 0;
+    let mut len: usize = 0;
     let ptr = lua_tolstring(state, index, &mut len);
     assert!(!ptr.is_null());
     let bytes = std::slice::from_raw_parts(ptr as *const u8, len as usize);
