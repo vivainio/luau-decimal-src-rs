@@ -97,6 +97,10 @@ static inline bool decimalMagnitudeMultiply(DecimalMagnitude a, DecimalMagnitude
 
 static inline bool decimalMantissaMultiply(DecimalMantissa a, DecimalMantissa b, DecimalMantissa* result)
 {
+#if defined(__SIZEOF_INT128__) && !defined(LUAU_DECIMAL_PORTABLE)
+    // Keep the original signed native fast path: no sign/magnitude conversions.
+    return !__builtin_mul_overflow(a, b, result) && *result <= kDecimalMaxMantissa && *result >= -kDecimalMaxMantissa;
+#else
     bool negative = (a < 0) != (b < 0);
     DecimalMagnitude ma = a < 0 ? -DecimalMagnitude(a) : DecimalMagnitude(a);
     DecimalMagnitude mb = b < 0 ? -DecimalMagnitude(b) : DecimalMagnitude(b);
@@ -106,4 +110,5 @@ static inline bool decimalMantissaMultiply(DecimalMantissa a, DecimalMantissa b,
     DecimalMantissa value = DecimalMantissa(magnitude);
     *result = negative ? -value : value;
     return true;
+#endif
 }

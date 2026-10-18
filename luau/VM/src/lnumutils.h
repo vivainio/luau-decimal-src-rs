@@ -176,7 +176,7 @@ static inline bool luai_decsubfast(DecimalMantissa ma, int ea, DecimalMantissa m
 static inline bool luai_decmulfast(DecimalMantissa ma, int ea, DecimalMantissa mb, int eb, DecimalMantissa* om, int* oe)
 {
     DecimalMantissa r;
-    if (ea + eb < -kDecimalMaxScale || !decimalMantissaMultiply(ma, mb, &r) || r > kDecimalMaxMantissa || r < -kDecimalMaxMantissa)
+    if (ea + eb < -kDecimalMaxScale || !decimalMantissaMultiply(ma, mb, &r))
         return false;
 
     *om = r;
