@@ -96,6 +96,9 @@ static Constant ctype(const Constant& c)
     case Constant::Type_Integer:
         return cstring("integer");
 
+    case Constant::Type_Decimal:
+        return cstring("decimal");
+
     case Constant::Type_Vectorf:
     case Constant::Type_Vectord:
         return cstring("vector");
@@ -126,6 +129,9 @@ static Constant ctypeof(const Constant& c)
 
     case Constant::Type_Integer:
         return cstring("integer");
+
+    case Constant::Type_Decimal:
+        return cstring("decimal");
 
     case Constant::Type_Vectorf:
     case Constant::Type_Vectord:

@@ -11,6 +11,14 @@
 
 #include <string.h>
 
+static DecimalMantissa todecimal(lua_State* L, int idx, int* exponent)
+{
+    int negative;
+    uint64_t hi, lo;
+    lua_todecimal(L, idx, &negative, &hi, &lo, exponent);
+    return decimalMantissaJoin(negative != 0, hi, lo);
+}
+
 // convert a stack index to positive
 #define abs_index(L, i) ((i) > 0 || (i) <= LUA_REGISTRYINDEX ? (i) : lua_gettop(L) + (i) + 1)
 
@@ -565,6 +573,15 @@ void luaL_addvalueany(luaL_Strbuf* B, int idx)
         luaL_addlstring(B, s, e - s);
         break;
     }
+    case LUA_TDECIMAL:
+    {
+        int e;
+        DecimalMantissa m = todecimal(L, idx, &e);
+        char s[LUAI_MAXDEC2STR];
+        char* end = luai_dec2str(s, m, e);
+        luaL_addlstring(B, s, end - s);
+        break;
+    }
     default:
     {
         size_t len;
@@ -662,6 +679,15 @@ const char* luaL_tolstring(lua_State* L, int idx, size_t* len)
         char s[LUAI_MAXINT2STR];
         char* e = luai_int2str(s, l);
         lua_pushlstring(L, s, e - s);
+        break;
+    }
+    case LUA_TDECIMAL:
+    {
+        int e;
+        DecimalMantissa m = todecimal(L, idx, &e);
+        char s[LUAI_MAXDEC2STR];
+        char* end = luai_dec2str(s, m, e);
+        lua_pushlstring(L, s, end - s);
         break;
     }
     default:

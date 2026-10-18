@@ -16,6 +16,10 @@
 #include "lstate.h"
 #include "lgc.h"
 
+LUAU_FASTFLAG(LuauCodegenExitSyncUpdate)
+LUAU_FASTFLAG(LuauCodegenConstPropMinOffset)
+LUAU_FASTFLAG(LuauCodegenImprovedExitSync)
+
 namespace Luau
 {
 namespace CodeGen
@@ -2198,6 +2202,18 @@ void IrLoweringX64::lowerInst(IrInst& inst, uint32_t index, const IrBlock& next)
     case IrCmd::DO_LEN:
         callLengthHelper(regs, build, vmRegOp(OP_A(inst)), vmRegOp(OP_B(inst)));
         break;
+    case IrCmd::CONSTRUCT:
+    {
+        IrCallWrapperX64 callWrap(regs, build);
+        callWrap.addArgument(SizeX64::qword, rState);
+        callWrap.addArgument(SizeX64::qword, luauRegAddress(vmRegOp(OP_A(inst))));
+        callWrap.addArgument(SizeX64::qword, luauRegAddress(vmRegOp(OP_B(inst))));
+        callWrap.addArgument(SizeX64::dword, uintOp(OP_C(inst)));
+        callWrap.call(qword[rNativeContext + offsetof(NativeContext, luaR_tryconstructobject)]);
+
+        emitUpdateBase(build);
+        break;
+    }
     case IrCmd::GET_TABLE:
         if (OP_C(inst).kind == IrOpKind::VmReg)
         {
@@ -2535,7 +2551,8 @@ void IrLoweringX64::lowerInst(IrInst& inst, uint32_t index, const IrBlock& next)
             int endOffset = maxOffset;
 
             // Constant folding can take care of it, but for safety we avoid overflow/underflow cases here
-            if (offset < 0 || unsigned(offset) + unsigned(endOffset) >= unsigned(INT_MAX))
+            if (offset < 0 || (FFlag::LuauCodegenConstPropMinOffset && offset + minOffset < 0) ||
+                unsigned(offset) + unsigned(endOffset) >= unsigned(INT_MAX))
                 jumpOrAbortOnUndefNoFinalize(ConditionX64::Count, OP_F(inst), index, next, fresh);
             else
                 build.cmp(dword[regA + offsetof(Buffer, len)], offset + endOffset);
@@ -3731,7 +3748,20 @@ void IrLoweringX64::startBlock(const IrBlock& curr)
         );
 
     if (curr.kind == IrBlockKind::ExitSync)
-        regs.setupExitSyncEntry(function.getBlockIndex(curr));
+    {
+        if (FFlag::LuauCodegenImprovedExitSync)
+        {
+            uint32_t blockIdx = function.getBlockIndex(curr);
+            regs.setupExitSyncEntry(blockIdx);
+
+            // With register state restored, we can restore value location tracking
+            valueTracker.setupExitSyncEntry(blockIdx);
+        }
+        else
+        {
+            regs.setupExitSyncEntry(function.getBlockIndex(curr));
+        }
+    }
 }
 
 void IrLoweringX64::finishBlock(const IrBlock& curr, const IrBlock& next)
@@ -3802,6 +3832,9 @@ bool IrLoweringX64::hasError() const
 {
     // If register allocator had to use more stack slots than we have available, this function can't run natively
     if (regs.maxUsedSlot > kSpillSlots)
+        return true;
+
+    if (FFlag::LuauCodegenExitSyncUpdate && regs.error)
         return true;
 
     return false;
@@ -3983,8 +4016,8 @@ void IrLoweringX64::incrementCounterAt(size_t offset)
     ScopedRegX64 tmp{regs, SizeX64::qword};
 
     // Get counter slot
-    build.mov(tmp.reg, sClosure);
-    build.mov(tmp.reg, qword[tmp.reg + offsetof(Closure, l.p)]);
+    build.mov(tmp.reg, qword[rState + offsetof(lua_State, ci)]);
+    build.mov(tmp.reg, qword[tmp.reg + offsetof(CallInfo, p)]);
     build.mov(tmp.reg, qword[tmp.reg + offsetof(Proto, execdata)]);
 
     // Increment

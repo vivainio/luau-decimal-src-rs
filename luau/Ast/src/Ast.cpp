@@ -184,6 +184,18 @@ void AstExprConstantInteger::visit(AstVisitor* visitor)
     visitor->visit(this);
 }
 
+AstExprConstantDecimal::AstExprConstantDecimal(const Location& location, DecimalMantissa mantissa, int exponent)
+    : AstExpr(ClassIndex(), location)
+    , mantissa(mantissa)
+    , exponent(exponent)
+{
+}
+
+void AstExprConstantDecimal::visit(AstVisitor* visitor)
+{
+    visitor->visit(this);
+}
+
 AstExprConstantString::AstExprConstantString(const Location& location, const AstArray<char>& value, QuoteStyle quoteStyle)
     : AstExpr(ClassIndex(), location)
     , value(value)
@@ -239,6 +251,7 @@ AstExprCall::AstExprCall(
     AstExpr* func,
     const AstArray<AstExpr*>& args,
     bool self,
+    bool tableCall,
     const AstArray<AstTypeOrPack>& explicitTypes,
     const Location& argLocation
 )
@@ -247,6 +260,7 @@ AstExprCall::AstExprCall(
     , typeArguments(explicitTypes)
     , args(args)
     , self(self)
+    , tableCall(tableCall)
     , argLocation(argLocation)
 {
 }

@@ -53,7 +53,9 @@ typedef int (*lua_Continuation)(lua_State* L, int status);
 */
 
 typedef void* (*lua_Alloc)(void* ud, void* ptr, size_t osize, size_t nsize);
-// `type` identifies the caged heap allocation, which is an opaque embedder-defined identifier
+
+// `type` is an opaque VM-defined value which identifies the caged heap allocation kind
+// separating allocations of different types is recommended
 typedef void* (*lua_CageAlloc)(void* ud, void* ptr, size_t osize, size_t nsize, int type);
 
 // non-return type
@@ -77,6 +79,7 @@ enum lua_Type
     LUA_TLIGHTUSERDATA,
     LUA_TNUMBER,
     LUA_TINTEGER,
+    LUA_TDECIMAL, // 90-bit mantissa, sign and scale, packed into Value::l and TValue::extra[0]
 
     // When vector components are 'float', vector fits into the TValue
 #if LUA_VECTOR_DOUBLE == 0
@@ -174,6 +177,8 @@ LUA_API unsigned lua_tounsignedx(lua_State* L, int idx, int* isnum);
 LUA_API const LUA_VECTOR_TYPE* lua_tovector(lua_State* L, int idx);
 LUA_API int lua_toboolean(lua_State* L, int idx);
 LUA_API int64_t lua_tointeger64(lua_State* L, int idx, int* isinteger);
+// the mantissa is the 90-bit magnitude (hi holds bits 64-89, lo bits 0-63) and a sign; the exponent is the negated scale, in [-28, 0]
+LUA_API int lua_todecimal(lua_State* L, int idx, int* negative, uint64_t* hi, uint64_t* lo, int* exponent);
 LUA_API const char* lua_tolstring(lua_State* L, int idx, size_t* len);
 LUA_API const char* lua_tostringatom(lua_State* L, int idx, int* atom);
 LUA_API const char* lua_tolstringatom(lua_State* L, int idx, size_t* len, int* atom);
@@ -197,6 +202,7 @@ LUA_API void lua_pushnil(lua_State* L);
 LUA_API void lua_pushnumber(lua_State* L, double n);
 LUA_API void lua_pushinteger(lua_State* L, int n);
 LUA_API void lua_pushinteger64(lua_State* L, int64_t n);
+LUA_API void lua_pushdecimal(lua_State* L, int negative, uint64_t hi, uint64_t lo, int exponent);
 LUA_API void lua_pushunsigned(lua_State* L, unsigned n);
 #if LUA_VECTOR_SIZE == 4
 LUA_API void lua_pushvector(lua_State* L, LUA_VECTOR_TYPE x, LUA_VECTOR_TYPE y, LUA_VECTOR_TYPE z, LUA_VECTOR_TYPE w);
@@ -274,10 +280,8 @@ LUA_API int lua_isyieldable(lua_State* L);
 LUA_API void* lua_getthreaddata(lua_State* L);
 LUA_API void lua_setthreaddata(lua_State* L, void* data);
 LUA_API int lua_costatus(lua_State* L, lua_State* co);
-
-// NOTE: experimental API, requires a Debug flag and is subject to breaking changes
 LUA_API int lua_hasfinalizers(lua_State* L);
-LUA_API void lua_pushfinalizerfunction(lua_State* L);
+LUA_API void lua_pushfinalizerfunction(lua_State* L, lua_State* co, int toclose);
 LUA_API void lua_addfinalizer(lua_State* L, lua_State* co, int idx);
 
 /*
@@ -513,6 +517,7 @@ LUA_API int lua_unref(lua_State* L, int ref);
 #define lua_isnil(L, n) (lua_type(L, (n)) == LUA_TNIL)
 #define lua_isboolean(L, n) (lua_type(L, (n)) == LUA_TBOOLEAN)
 #define lua_isinteger64(L, n) (lua_type(L, (n)) == LUA_TINTEGER)
+#define lua_isdecimal(L, n) (lua_type(L, (n)) == LUA_TDECIMAL)
 #define lua_isvector(L, n) (lua_type(L, (n)) == LUA_TVECTOR)
 #define lua_isthread(L, n) (lua_type(L, (n)) == LUA_TTHREAD)
 #define lua_isbuffer(L, n) (lua_type(L, (n)) == LUA_TBUFFER)
@@ -639,10 +644,10 @@ typedef struct lua_Callbacks lua_Callbacks;
 
 LUA_API lua_Callbacks* lua_callbacks(lua_State* L);
 
-// Must be called after lua_newstate and before the state creates any buffers
+// Must be called after lua_newstate and before the state creates any additional objects
 // The VM makes no assumptions about the layout or structure of the caged heap
-// The VM does assume that the embedder will free any memory allocated if the lua_State the cage is associated with is closed
-LUA_API void lua_setbuffercage(lua_State* L, lua_CageAlloc alloc, void* ud);
+// The VM does assume that the embedder will free any memory allocated if the main lua_State the cage is associated with is closed
+LUA_API void lua_setmemorycage(lua_State* L, lua_CageAlloc alloc, void* ud);
 
 /******************************************************************************
  * Copyright (c) 2019-2023 Roblox Corporation

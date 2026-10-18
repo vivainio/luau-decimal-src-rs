@@ -2,6 +2,7 @@
 #pragma once
 
 #include "Luau/Common.h"
+#include "Luau/DecimalMantissa.h"
 #include "Luau/Location.h"
 #include "Luau/Variant.h"
 
@@ -372,6 +373,20 @@ public:
     int64_t value;
     ConstantNumberParseResult parseResult;
 };
+// value is mantissa * 10^exponent, where the exponent is the negated scale in [-28, 0] and the scale is preserved (1.50d has exponent -2)
+class AstExprConstantDecimal : public AstExpr
+{
+public:
+    LUAU_RTTI(AstExprConstantDecimal)
+
+    AstExprConstantDecimal(const Location& location, DecimalMantissa mantissa, int exponent);
+
+    void visit(AstVisitor* visitor) override;
+
+    DecimalMantissa mantissa;
+    int exponent;
+};
+
 class AstExprConstantString : public AstExpr
 {
 public:
@@ -457,6 +472,7 @@ public:
         AstExpr* func,
         const AstArray<AstExpr*>& args,
         bool self,
+        bool tableCall,
         const AstArray<AstTypeOrPack>& explicitTypes,
         const Location& argLocation
     );
@@ -470,6 +486,7 @@ public:
     AstArray<AstTypeOrPack> typeArguments;
     AstArray<AstExpr*> args;
     bool self;
+    bool tableCall;
     Location argLocation;
 };
 
@@ -1524,6 +1541,10 @@ public:
         return visit(static_cast<AstExpr*>(node));
     }
     virtual bool visit(class AstExprConstantInteger* node)
+    {
+        return visit(static_cast<AstExpr*>(node));
+    }
+    virtual bool visit(class AstExprConstantDecimal* node)
     {
         return visit(static_cast<AstExpr*>(node));
     }

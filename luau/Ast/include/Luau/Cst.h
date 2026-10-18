@@ -114,6 +114,16 @@ public:
     AstArray<char> value;
 };
 
+class CstExprConstantDecimal : public CstNode
+{
+public:
+    LUAU_CST_RTTI(CstExprConstantDecimal)
+
+    explicit CstExprConstantDecimal(const AstArray<char>& value);
+
+    AstArray<char> value;
+};
+
 class CstExprConstantString : public CstNode
 {
 public:

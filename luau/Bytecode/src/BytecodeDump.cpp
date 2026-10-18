@@ -245,6 +245,10 @@ const char* getLuauOpcodeName(LuauOpcode cmd)
         return "FASTPCALL";
     case LOP_NEWCLASS:
         return "NEWCLASS";
+    case LOP_CONSTRUCT:
+        return "CONSTRUCT";
+    case LOP_FINCONSTRUCT:
+        return "FINCONSTRUCT";
     default:
         LUAU_ASSERT(!"Unsupported opcode");
         return "unknown";
@@ -355,6 +359,13 @@ void toString(ToStringContext& ctx, BcFunction<BcVmConst>& function, const BcVmC
         break;
     case BcVmConstKind::Integer:
         append(ctx.result, "%lld", (long long)data.valueInteger);
+        break;
+    case BcVmConstKind::Decimal:
+    {
+        char digits[48];
+        decimalMantissaToString(digits, data.valueDecimal.mantissa);
+        append(ctx.result, "%sE%dd", digits, (int)data.valueDecimal.exponent);
+    }
         break;
     case BcVmConstKind::ClassShape:
         const BytecodeBuilder::ClassShape& cs = function.classShapes[data.valueClassShape];

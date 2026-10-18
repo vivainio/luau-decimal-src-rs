@@ -1,3 +1,14 @@
+# luau-decimal-src-rs
+
+Experimental Luau source crate with native decimal support for
+[mlua-decimal-native](https://github.com/vivainio/mlua-decimal-native).
+
+This fork bundles [vivainio/luau](https://github.com/vivainio/luau)'s native
+decimal implementation. See [decimal integration](DECIMAL.md) for source provenance
+and binding requirements. The Cargo package name remains `luau0-src`.
+
+The upstream source crate documentation follows below.
+
 # luau-src
 [![Build Status]][github-actions]
 

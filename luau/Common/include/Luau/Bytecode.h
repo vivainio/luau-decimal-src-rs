@@ -464,12 +464,29 @@ enum LuauOpcode
     // C: jump offset to get to following CALL
     LOP_FASTPCALL,
 
+
+    // The following instructions appear only in experimental bytecode versions and are subject to change
+
     // NEWCLASS: reify a class object
     // A: target register of class
     // B: source register of superclass, or 0xFF if no superclass
     // C: bottom bit is 1 if the class is open, else 0; upper 7 bits are reserved
     // AUX: constant table index of unreified class object
     LOP_NEWCLASS,
+
+    // CONSTRUCT: duplicate table to ra using the constant table template specified in the feedback slot. if rb is a class with default constructor and duplicated table matches shape required by the class, creates an object using class's default constructor
+    // A: target register
+    // B: register that is likely to hold a class
+    // C: reserved
+    // AUX: feedback slot id
+    LOP_CONSTRUCT,
+
+    // FINCONSTRUCT: checks if object construction initiated by a preceding CONSTRUCT succeeded and either finishes result placement or fallbacks to a CALL instruction
+    // Note that FINCONSTRUCT will read the actual call arguments, such as argument/result registers and counts, from the CALL instruction
+    // A: source register
+    // B: reserved
+    // C: jump offset to get to following CALL
+    LOP_FINCONSTRUCT,
 
     // Enum entry for number of opcodes, not a valid opcode by itself!
     LOP__COUNT
@@ -539,6 +556,7 @@ enum LuauBytecodeTag
     LBC_CONSTANT_INTEGER,
     LBC_CONSTANT_CLASS_SHAPE,
     LBC_CONSTANT_VECTORD,
+    LBC_CONSTANT_DECIMAL, // sign byte, varint64 high and low halves of the mantissa magnitude (a 90-bit number), varint scale
 
     /** WARNING: This must always be last. */
     LBC_CONSTANT__COUNT
@@ -558,6 +576,8 @@ enum LuauBytecodeType
     LBC_TYPE_VECTOR,
     LBC_TYPE_BUFFER,
     LBC_TYPE_INTEGER,
+    LBC_TYPE_CLASS,
+    LBC_TYPE_OBJECT,
 
     LBC_TYPE_ANY = 15,
 
@@ -782,5 +802,8 @@ enum LuauProtoFlag
 
 enum LuauFeedbackType
 {
-    LFT_CALLTARGET = 0
+    LFT_CALLTARGET = 0,
+
+    // The following enumerations appear only in experimental bytecode versions and are subject to change
+    LFT_CONSTRUCT = 1,
 };

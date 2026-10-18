@@ -391,3 +391,49 @@ char* luai_int2str(char* buf, int64_t l)
 
     return &buf[(l < 0) ? (numDigits + 1) : numDigits];
 }
+
+char* luai_dec2str(char* buf, DecimalMantissa mantissa, int exponent)
+{
+    // decimal value is mantissa * 10^exponent; output is plain notation without an exponent
+    char digits[48];
+    char* end = decimalMantissaToString(digits, mantissa);
+    const char* d = digits;
+
+    char* out = buf;
+    if (*d == '-')
+        *out++ = *d++;
+
+    int n = int(end - d);
+
+    if (exponent >= 0)
+    {
+        memcpy(out, d, n);
+        out += n;
+        if (mantissa != 0)
+        {
+            memset(out, '0', exponent);
+            out += exponent;
+        }
+    }
+    else if (n > -exponent)
+    {
+        int intDigits = n + exponent;
+        memcpy(out, d, intDigits);
+        out += intDigits;
+        *out++ = '.';
+        memcpy(out, d + intDigits, -exponent);
+        out += -exponent;
+    }
+    else
+    {
+        *out++ = '0';
+        *out++ = '.';
+        memset(out, '0', -exponent - n);
+        out += -exponent - n;
+        memcpy(out, d, n);
+        out += n;
+    }
+
+    *out = 0;
+    return out;
+}

@@ -145,7 +145,8 @@ enum class BcVmConstKind : uint8_t
     Table,
     Closure,
     Integer,
-    ClassShape
+    ClassShape,
+    Decimal
 };
 
 struct BcVmConst
@@ -164,6 +165,11 @@ struct BcVmConst
         uint32_t valueClosure;
         int64_t valueInteger;
         uint32_t valueClassShape;
+        struct
+        {
+            DecimalMantissa mantissa;
+            int32_t exponent;
+        } valueDecimal;
     };
 
     BcVmConst()
@@ -213,6 +219,9 @@ struct BcVmConst
 
         case BcVmConstKind::ClassShape:
             return valueClassShape == rhs.valueClassShape;
+
+        case BcVmConstKind::Decimal:
+            return valueDecimal.mantissa == rhs.valueDecimal.mantissa && valueDecimal.exponent == rhs.valueDecimal.exponent;
 
         default:
             LUAU_ASSERT(!"Unhandled BcVmConstKind");
@@ -393,6 +402,24 @@ inline BcCondition opcodeToCondition(LuauOpcode op)
     }
 }
 
+struct BcFeedbackSlot
+{
+    LuauFeedbackType kind;
+
+    union
+    {
+        struct
+        {
+            uint32_t inst;
+        } callTarget;
+
+        struct
+        {
+            uint32_t shape;
+        } construct;
+    };
+};
+
 struct TypedLocal
 {
     LuauBytecodeType type;
@@ -445,6 +472,7 @@ struct BcFunction
     std::vector<BcProj> projections;
     std::vector<BytecodeBuilder::TableShape> tableShapes;
     std::vector<BytecodeBuilder::ClassShape> classShapes;
+    std::vector<BcFeedbackSlot> feedbackSlots;
 
     BcOp entryBlock;
     BcOp exitBlock;

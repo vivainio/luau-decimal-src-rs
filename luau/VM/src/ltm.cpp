@@ -24,6 +24,7 @@ const char* const luaT_typenames[] = {
     "userdata",
     "number",
     "integer",
+    "decimal",
 
 #if LUA_VECTOR_DOUBLE == 0
     "vector",

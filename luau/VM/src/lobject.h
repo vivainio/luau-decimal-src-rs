@@ -4,6 +4,7 @@
 
 #include "lua.h"
 #include "lcommon.h"
+#include "Luau/DecimalMantissa.h"
 
 /*
 ** Union of all collectible objects
@@ -62,10 +63,41 @@ typedef struct lua_TValue
 #define condvectordouble(vecdoubleexpr, vecfloatexpr) vecfloatexpr
 #endif
 
+/*
+** Decimals are stored in a value slot as a 90-bit mantissa magnitude, a sign and a scale (the negated exponent, 0 to 28):
+**   Value::l    the low 64 bits of the magnitude
+**   extra[0]    bits 0-25: the high 26 bits of the magnitude, bits 26-30: the scale, bit 31: the sign
+** Zero is never negative, so equal values with the same scale have identical bits.
+*/
+static inline DecimalMantissa luaO_decmantissa(const TValue* o)
+{
+    LUAU_ASSERT(o->tt == LUA_TDECIMAL);
+    uint32_t packed = uint32_t(o->extra[0]);
+    return decimalMantissaJoin((packed >> 31) != 0, packed & 0x3FFFFFFu, uint64_t(o->value.l));
+}
+
+static inline int luaO_decexponent(const TValue* o)
+{
+    LUAU_ASSERT(o->tt == LUA_TDECIMAL);
+    return -int((uint32_t(o->extra[0]) >> 26) & 31);
+}
+
+static inline void luaO_setdec(TValue* o, DecimalMantissa m, int e)
+{
+    bool negative;
+    uint64_t hi, lo;
+    decimalMantissaSplit(m, &negative, &hi, &lo);
+
+    o->value.l = int64_t(lo);
+    o->extra[0] = int(uint32_t(hi) | (uint32_t(-e) << 26) | (negative ? 0x80000000u : 0u));
+    o->tt = LUA_TDECIMAL;
+}
+
 // Macros to test type
 #define ttisnil(o) (ttype(o) == LUA_TNIL)
 #define ttisnumber(o) (ttype(o) == LUA_TNUMBER)
 #define ttisinteger(o) (ttype(o) == LUA_TINTEGER)
+#define ttisdecimal(o) (ttype(o) == LUA_TDECIMAL)
 #define ttisstring(o) (ttype(o) == LUA_TSTRING)
 #define ttistable(o) (ttype(o) == LUA_TTABLE)
 #define ttisfunction(o) (ttype(o) == LUA_TFUNCTION)
@@ -85,6 +117,8 @@ typedef struct lua_TValue
 #define pvalue(o) check_exp(ttislightuserdata(o), (o)->value.p)
 #define nvalue(o) check_exp(ttisnumber(o), (o)->value.n)
 #define lvalue(o) check_exp(ttisinteger(o), (o)->value.l)
+#define decmantissa(o) luaO_decmantissa(o)
+#define decexponent(o) luaO_decexponent(o)
 #define vvalue(o) check_exp(ttisvector(o), condvectordouble((o)->value.gc->vec.v, (o)->value.v))
 #define tsvalue(o) check_exp(ttisstring(o), &(o)->value.gc->ts)
 #define uvalue(o) check_exp(ttisuserdata(o), &(o)->value.gc->u)
@@ -127,6 +161,8 @@ typedef struct lua_TValue
         i_o->value.l = (x); \
         i_o->tt = LUA_TINTEGER; \
     }
+
+#define setdecvalue(obj, m, e) luaO_setdec((obj), (m), (e))
 
 #if LUA_VECTOR_DOUBLE == 1
 #define setvvalue(L, obj, x, y, z, w) \
@@ -340,7 +376,15 @@ typedef struct LuauVector
 
 enum FeedbackVectorSlotKind
 {
-    CALL_TARGET
+    CALL_TARGET,
+    CONSTRUCT,
+};
+
+enum LuauClassConstructMatch
+{
+    LCM_MISMATCH,
+    LCM_MATCH,
+    LCM_MATCH_ZEROED,
 };
 
 struct FeedbackVectorSlot
@@ -355,6 +399,13 @@ struct FeedbackVectorSlot
             uint32_t proto;
             uint32_t hits;
         } call_target;
+
+        struct
+        {
+            uint32_t shape;
+            uint32_t classid;
+            LuauClassConstructMatch match;
+        } construct;
     };
 };
 
@@ -561,6 +612,9 @@ typedef struct LuauClass
     GCObject* gclist;
 
     TString* name;
+
+    // Used to match feedback vector construction slots
+    uint32_t id;
 
     // The superclass of this class. NULL if this class doesn't inherit.
     LuauClass* super;

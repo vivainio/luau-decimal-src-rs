@@ -2,6 +2,7 @@
 #pragma once
 
 #include "Luau/Bytecode.h"
+#include "Luau/DecimalMantissa.h"
 #include "Luau/DenseHash.h"
 #include "Luau/StringUtils.h"
 
@@ -79,6 +80,7 @@ public:
     int32_t addConstantBoolean(bool value);
     int32_t addConstantNumber(double value);
     int32_t addConstantInteger(int64_t value);
+    int32_t addConstantDecimal(DecimalMantissa mantissa, int exponent);
     int32_t addConstantVectorf(float x, float y, float z, float w);
     int32_t addConstantVectord(double x, double y, double z, double w);
     int32_t addConstantString(StringRef value);
@@ -86,7 +88,10 @@ public:
     int32_t addConstantTable(const TableShape& shape);
     int32_t addConstantClosure(uint32_t fid);
 
-    uint32_t addFbSlot(LuauFeedbackType t);
+    uint32_t addFbSlot_DEPRECATED(LuauFeedbackType t);
+    uint32_t addFbSlot_DEPRECATED(LuauFeedbackType t, uint32_t pc);
+    uint32_t addCallTargetSlot(uint32_t pc);
+    uint32_t addConstructSlot(uint32_t shapecid);
 
     int16_t addChildFunction(uint32_t fid);
     int32_t addClassShape(ClassShape shape);
@@ -207,6 +212,7 @@ protected:
             Type_Boolean,
             Type_Number,
             Type_Integer,
+            Type_Decimal,
             Type_Vectorf,
             Type_Vectord,
             Type_String,
@@ -222,6 +228,11 @@ protected:
             bool valueBoolean;
             double valueNumber;
             int64_t valueInteger64;
+            struct
+            {
+                DecimalMantissa mantissa;
+                int32_t exponent;
+            } valueDecimal;
             float valueVectorf[4];
             double valueVectord[4];
             unsigned int valueString; // index into string table
@@ -336,7 +347,26 @@ protected:
     std::vector<TableShape> tableShapes;
     std::vector<ClassShape> classShapes;
 
-    std::vector<uint32_t> fbSlots;
+    struct FeedbackSlot
+    {
+        LuauFeedbackType kind;
+
+        union
+        {
+            struct
+            {
+                uint32_t pc;
+            } callTarget;
+
+            struct
+            {
+                uint32_t shape;
+            } construct;
+        };
+    };
+
+    std::vector<FeedbackSlot> fbSlots;
+    std::vector<uint32_t> fbSlots_DEPRECATED;
 
     bool hasLongJumps = false;
 

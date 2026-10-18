@@ -17,7 +17,6 @@
 
 #include <string.h>
 
-LUAU_FASTFLAG(LuauCallFeedback)
 LUAU_FASTFLAGVARIABLE(LuauCostModel)
 LUAU_FASTFLAGVARIABLE(LuauLoadRemapOptionalUserdata)
 
@@ -663,6 +662,16 @@ static int loadsafe(
                 break;
             }
 
+            case LBC_CONSTANT_DECIMAL:
+            {
+                bool isNegative = read<uint8_t>(data, size, offset);
+                uint64_t hi = readVarInt64(data, size, offset);
+                uint64_t lo = readVarInt64(data, size, offset);
+                int scale = int(readVarInt(data, size, offset));
+                setdecvalue(&p->k[j], decimalMantissaJoin(isNegative, hi, lo), -scale);
+                break;
+            }
+
             default:
                 LUAU_ASSERT(!"Unexpected constant kind");
             }
@@ -789,12 +798,26 @@ static int loadsafe(
             for (uint32_t j = 0; j < p->feedbackvecsize; j++)
             {
                 uint8_t slottype = read<uint8_t>(data, size, offset);
-                LUAU_ASSERT(slottype == LFT_CALLTARGET);
+
                 FeedbackVectorSlot& slot = p->feedbackvec[j];
                 slot.kind = static_cast<FeedbackVectorSlotKind>(slottype);
-                slot.call_target.pc = readVarInt(data, size, offset);
-                slot.call_target.proto = 0;
-                slot.call_target.hits = 0;
+
+                if (slottype == LFT_CALLTARGET)
+                {
+                    slot.call_target.pc = readVarInt(data, size, offset);
+                    slot.call_target.proto = 0;
+                    slot.call_target.hits = 0;
+                }
+                else if (slottype == LFT_CONSTRUCT)
+                {
+                    slot.construct.shape = readVarInt(data, size, offset);
+                    slot.construct.classid = 0;
+                    slot.construct.match = LCM_MISMATCH;
+                }
+                else
+                {
+                    LUAU_ASSERT(!"unknown feedback slot type");
+                }
             }
         }
 

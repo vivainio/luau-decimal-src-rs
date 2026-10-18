@@ -8,11 +8,12 @@
 
 #include <algorithm>
 #include <limits>
+
 #include <math.h>
+#include <stdio.h>
 
 LUAU_FASTFLAG(DebugLuauUserDefinedClasses)
 LUAU_FASTFLAG(LuauExportValueSyntax)
-LUAU_FASTFLAGVARIABLE(LuauPrettyPrintVisualizeIndexerAccess)
 LUAU_FASTFLAG(LuauExperimentalIfLocalSyntax)
 
 namespace
@@ -519,6 +520,22 @@ struct Printer
                         writer.literal(std::string_view{buffer, len});
                     }
                 }
+            }
+        }
+        else if (const auto& a = expr.as<AstExprConstantDecimal>())
+        {
+            if (const auto cstNode = lookupCstNode<CstExprConstantDecimal>(a))
+            {
+                writer.literal(std::string_view(cstNode->value.data, cstNode->value.size));
+            }
+            else
+            {
+                // written as mantissa and exponent, which is always valid and exact
+                char digits[48];
+                decimalMantissaToString(digits, a->mantissa);
+                char buffer[100];
+                size_t len = snprintf(buffer, sizeof(buffer), "%sE%dd", digits, a->exponent);
+                writer.literal(std::string_view{buffer, len});
             }
         }
         else if (const auto& a = expr.as<AstExprConstantInteger>())
@@ -1916,15 +1933,12 @@ struct Printer
             {
                 if (a->props.size == 0 && indexType && indexType->name == "number")
                 {
-                    if (FFlag::LuauPrettyPrintVisualizeIndexerAccess)
+                    if (a->indexer->access != AstTableAccess::ReadWrite)
                     {
-                        if (a->indexer->access != AstTableAccess::ReadWrite)
-                        {
-                            if (const std::optional<Location>& accessLocation = a->indexer->accessLocation)
-                                advance(accessLocation->begin);
+                        if (const std::optional<Location>& accessLocation = a->indexer->accessLocation)
+                            advance(accessLocation->begin);
 
-                            writer.keyword(a->indexer->access == AstTableAccess::Read ? "read" : "write");
-                        }
+                        writer.keyword(a->indexer->access == AstTableAccess::Read ? "read" : "write");
                     }
 
                     visualizeTypeAnnotation(*a->indexer->resultType);
@@ -1948,18 +1962,15 @@ struct Printer
                     {
                         comma();
 
-                        if (FFlag::LuauPrettyPrintVisualizeIndexerAccess)
+                        if (a->indexer->access != AstTableAccess::ReadWrite)
                         {
-                            if (a->indexer->access != AstTableAccess::ReadWrite)
-                            {
-                                if (const std::optional<Location>& accessLocation = a->indexer->accessLocation)
-                                    advance(accessLocation->begin);
+                            if (const std::optional<Location>& accessLocation = a->indexer->accessLocation)
+                                advance(accessLocation->begin);
 
-                                writer.keyword(a->indexer->access == AstTableAccess::Read ? "read" : "write");
-                            }
-
-                            advance(a->indexer->location.begin);
+                            writer.keyword(a->indexer->access == AstTableAccess::Read ? "read" : "write");
                         }
+
+                        advance(a->indexer->location.begin);
 
                         writer.symbol("[");
                         visualizeTypeAnnotation(*a->indexer->indexType);

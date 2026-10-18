@@ -11,6 +11,7 @@ pub struct lua_CompileOptions {
     vectorLib: *const c_char,
     vectorCtor: *const c_char,
     vectorType: *const c_char,
+    vectorPrecision: c_int,
     mutableGlobals: *const *const c_char,
     userdataTypes: *const *const c_char,
     librariesWithKnownMembers: *const *const c_char,
@@ -131,6 +132,24 @@ mod tests {
             lua_call(state, 2, 1);
             assert_eq!(lua_tointegerx(state, -1, ptr::null_mut()), 444);
 
+            lua_close(state);
+        }
+    }
+
+    #[test]
+    fn test_decimal() {
+        unsafe {
+            let state = luaL_newstate();
+            assert!(!state.is_null());
+            luaL_openlibs(state);
+            let code = "assert(0.10d + 0.20d == 0.30d); return tostring(19.99d * 3d)";
+            let mut size = 0;
+            let bytecode = luau_compile(code.as_ptr().cast(), code.len(), ptr::null_mut(), &mut size);
+            let loaded = luau_load(state, c"decimal".as_ptr(), bytecode, size, 0);
+            free(bytecode.cast());
+            assert_eq!(loaded, 0);
+            assert_eq!(lua_pcall(state, 0, 1, 0), 0);
+            assert_eq!(to_string(state, -1), "59.97");
             lua_close(state);
         }
     }

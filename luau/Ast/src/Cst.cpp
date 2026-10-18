@@ -56,6 +56,12 @@ CstExprConstantInteger::CstExprConstantInteger(const AstArray<char>& value)
 {
 }
 
+CstExprConstantDecimal::CstExprConstantDecimal(const AstArray<char>& value)
+    : CstNode(CstClassIndex())
+    , value(value)
+{
+}
+
 CstExprCall::CstExprCall(Position openParens, Position closeParens, AstArray<Position> commaPositions)
     : CstNode(CstClassIndex())
     , openParens(openParens)
